@@ -48,6 +48,8 @@ export interface CardSession {
   tool: ToolId;
   sessionId?: string;
   status: RunStatus;
+  /** 마지막 활동 시각. 같은 도구 칩이 여럿일 때 구별한다 */
+  at?: string;
 }
 
 /** 이 기기 설정 (VS Code 설정, TASK-2 ST-1) */

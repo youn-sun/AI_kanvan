@@ -223,8 +223,9 @@ describe('markdown documents (all documents in canvas style)', async () => {
   });
 
   it('splits plan tags from headings', () => {
-    expect(splitTag('[BE] 로그인 API')).toEqual({ tag: 'BE', title: '로그인 API' });
-    expect(splitTag('그냥 제목')).toEqual({ title: '그냥 제목' });
+    expect(splitTag('[BE] 로그인 API')).toEqual({ tags: ['BE'], title: '로그인 API' });
+    expect(splitTag('[BE][ML] 지역 매핑')).toEqual({ tags: ['BE', 'ML'], title: '지역 매핑' });
+    expect(splitTag('그냥 제목')).toEqual({ tags: [], title: '그냥 제목' });
   });
 
   it('opens canvas and markdown shared docs in the board', () => {

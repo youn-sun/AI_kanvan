@@ -13,10 +13,12 @@ export function tagProgress(items: ChecklistItem[]): TagProgress {
   const out: TagProgress = {};
   for (const item of items) {
     if (item.dropped) continue;
-    const key = item.tag?.toLowerCase() ?? UNCLASSIFIED;
-    const p = (out[key] ??= { done: 0, total: 0 });
-    p.total += 1;
-    if (item.checked) p.done += 1;
+    const keys = item.tags?.length ? [...new Set(item.tags.map((t) => t.toLowerCase()))] : [item.tag?.toLowerCase() ?? UNCLASSIFIED];
+    for (const key of keys) {
+      const p = (out[key] ??= { done: 0, total: 0 });
+      p.total += 1;
+      if (item.checked) p.done += 1;
+    }
   }
   return out;
 }
@@ -40,7 +42,8 @@ export function normalizeTags(tags: TagProgress, categories: Category[]): TagPro
 /** CT-3: 보드에 없는 태그 목록 (원래 표기). */
 export function unknownTags(items: ChecklistItem[], categories: Category[]): string[] {
   const seen = new Set<string>();
-  for (const item of items) if (item.tag && !categoryOf(item.tag.toLowerCase(), categories)) seen.add(item.tag);
+  for (const item of items)
+    for (const tag of item.tags ?? (item.tag ? [item.tag] : [])) if (!categoryOf(tag.toLowerCase(), categories)) seen.add(tag);
   return [...seen];
 }
 

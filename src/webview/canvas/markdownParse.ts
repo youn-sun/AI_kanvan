@@ -1,7 +1,7 @@
 // Markdown 파싱 (TASK-3). 그리기는 markdown.tsx가 한다.
 // 블록마다 원문 줄 번호(0부터)를 남겨, 문서 화면에서 절·체크박스를 원문에 바로 고칠 수 있게 한다.
 
-import { HEADING_TAG, unstruck } from '../../core/checklist';
+import { HEADING_TAG, headingTags, unstruck } from '../../core/checklist';
 
 export interface ListItem {
   text: string;
@@ -166,10 +166,10 @@ function parseLines(lines: string[], from: number, to: number): Block[] {
   return blocks;
 }
 
-/** 제목 맨 앞의 [태그]를 떼어 낸다 (plan.md 구분 태그). */
-export function splitTag(text: string): { tag?: string; title: string } {
+/** 제목 맨 앞의 [태그]들을 떼어 낸다 (plan.md 구분 태그). */
+export function splitTag(text: string): { tags: string[]; title: string } {
   const m = HEADING_TAG.exec(text);
-  return m ? { tag: m[1], title: text.slice(m[0].length).trim() } : { title: text };
+  return m ? { tags: headingTags(text), title: text.slice(m[0].length).trim() } : { tags: [], title: text };
 }
 
 /** 내용 없이 제목만 남은 절(템플릿 그대로인 절)을 뺀다. */
@@ -255,7 +255,7 @@ export function blockEdit(source: string, block: Block, text: string, part: Bloc
     case 'paragraph':
       return replaceLines(source, block.line, block.end, paragraphLines(text));
     case 'heading': {
-      const m = /^(\s*#{1,6}\s+)(\[[^\]]+\]\s*)?/.exec(sourceLine(source, block.line));
+      const m = /^(\s*#{1,6}\s+)((?:\[[^\]]+\]\s*)*)/.exec(sourceLine(source, block.line));
       if (!m || parts.length === 0) return replaceLines(source, block.line, block.line + 1, []);
       const rest = paragraphLines(parts.slice(1).join('\n'));
       return replaceLines(source, block.line, block.line + 1, [m[1]! + (m[2] ?? '') + parts[0]!, ...(rest.length ? ['', ...rest] : [])]);

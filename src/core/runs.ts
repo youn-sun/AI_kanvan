@@ -108,6 +108,7 @@ const SEEN_LIMIT = 20000;
 
 export const TERMINAL: ReadonlySet<RunStatus> = new Set(['ended', 'stopped', 'error']);
 export const ACTIVE: ReadonlySet<RunStatus> = new Set(['running', 'stopping', 'input_required']);
+const REOPEN: ReadonlySet<AgentEvent['type']> = new Set(['run.started', 'turn.started', 'input.required']);
 
 export type RunEffect =
   | { kind: 'reloadDocs'; cardId: string }
@@ -160,7 +161,9 @@ export function applyEvent(state: RunsState, event: AgentEvent): ApplyResult {
   if (state.seenEventIds.includes(event.eventId)) return { state, effects: [] };
   const seenEventIds = [...state.seenEventIds, event.eventId].slice(-SEEN_LIMIT);
   const run = resolveRun(state, event);
-  if (!run) return { state: { ...state, seenEventIds }, effects: [{ kind: 'unmatched', event }] };
+  // 보드 밖 세션은 끝난 뒤에도 다시 이어 쓰므로, 새 요청이 오면 새 회차로 기록하게 한다.
+  const resumed = run?.external && !event.runId && TERMINAL.has(run.status) && REOPEN.has(event.type);
+  if (!run || resumed) return { state: { ...state, seenEventIds }, effects: [{ kind: 'unmatched', event }] };
 
   const effects: RunEffect[] = [];
   const next: RunRecord = { ...run, lastSeenAt: maxIso(run.lastSeenAt, event.occurredAt) };

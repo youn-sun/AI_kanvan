@@ -378,6 +378,16 @@ describe('recovery and sessions', () => {
     stub.answers = [{ label: other.id }, { role: 'implementer' }];
     await service.handle({ type: 'linkSession', tool: 'claude', sessionId: 'EXT' });
     expect(stub.messages.some((m) => m.text.includes('already bound to TASK-1'))).toBe(true);
+
+    // 끝난 세션을 다시 이어 쓰면 새 회차로 기록되어 입력 필요 표시가 다시 뜬다.
+    await write('000000000000005-e', { hook_event_name: 'SessionEnd', session_id: 'EXT' });
+    await service.processInbox();
+    expect(service.runStatus(card.id)).toEqual({ implementer: 'ended' });
+    await write('000000000000006-f', { hook_event_name: 'UserPromptSubmit', session_id: 'EXT', prompt: '이어서' });
+    await write('000000000000007-g', { hook_event_name: 'Stop', session_id: 'EXT' });
+    await service.processInbox();
+    expect(service.runStatus(card.id)).toEqual({ implementer: 'input_required' });
+    expect((await runsOf(card.id)).filter((r) => r.toolSessionId === 'EXT').length).toBe(2);
   });
   it('sends later events of a session picked for another card to that card (pickSession)', async () => {
     const first = await newCard({ implementer: 'claude' });
@@ -485,7 +495,7 @@ describe('board settings in runs (TASK-2)', () => {
     const card = await newCard({ implementer: 'claude' });
     await service.startRun(card.id, 'implementer', { resume: false });
     const run = await waitFor(async () => (await runsOf(card.id)).find((r) => r.status === 'ended' && r.diff !== undefined));
-    expect(service.cardSessions(card.id)).toEqual([{ tool: 'claude', sessionId: run.toolSessionId, status: 'ended' }]);
+    expect(service.cardSessions(card.id)).toEqual([{ tool: 'claude', sessionId: run.toolSessionId, status: 'ended', at: run.lastSeenAt }]);
   });
 });
 

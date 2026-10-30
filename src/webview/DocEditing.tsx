@@ -185,13 +185,17 @@ function BlockView({ block, ctx, emptyAfter }: { block: Block; ctx: BlockContext
 
   switch (block.kind) {
     case 'heading': {
-      const { tag, title } = splitTag(block.text);
+      const { tags, title } = splitTag(block.text);
       const level = Math.min(3, Math.max(1, block.level)) as 1 | 2 | 3;
       const H = `h${level}` as const;
       return (
         <>
           <H style={{ margin: block.level <= 1 ? 0 : '12px 0 0', color: t.text.primary, ...canvasTypography[`h${level}`], display: 'flex', alignItems: 'center', gap: 8 }}>
-            {tag && <Pill size="sm">{tag}</Pill>}
+            {tags.map((tag) => (
+              <Pill key={tag} size="sm">
+                {tag}
+              </Pill>
+            ))}
             <Editable as="span" md={title} revision={ctx.source} onCommit={edit} style={{ flex: 1, minWidth: 0 }} />
           </H>
           {emptyAfter && (

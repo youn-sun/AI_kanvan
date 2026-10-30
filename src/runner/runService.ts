@@ -824,7 +824,7 @@ export class RunService implements RunsBridge, vscode.Disposable {
   /** E-8: 카드를 알 수 없는 세션의 이벤트. worktree 경로로 카드를 찾고, 못 찾으면 연결 대기 목록에 둔다. */
   private async handleUnmatched(event: AgentEvent): Promise<void> {
     if (!event.toolSessionId) return;
-    let target = this.findBoundCard(event.tool, event.toolSessionId);
+    let target = this.findBoundCard(event.tool, event.toolSessionId) ?? this.findPastRunCard(event.tool, event.toolSessionId);
     const worktreeCard = this.cardOfWorktree(event.payload?.cwd);
     if (!target && worktreeCard) {
       // 같은 도구가 지정됐고 아직 세션이 없는 역할에만 붙인다. 실행 중인 에이전트의 세션을 빼앗지 않는다.
@@ -992,6 +992,11 @@ export class RunService implements RunsBridge, vscode.Disposable {
       }
     }
     return undefined;
+  }
+
+  private findPastRunCard(tool: ToolId, sessionId: string): { cardId: string; role: Role } | undefined {
+    const run = this.state.runs.filter((r) => r.tool === tool && r.toolSessionId === sessionId && this.board.getCard(r.cardId)).at(-1);
+    return run && { cardId: run.cardId, role: run.role };
   }
 
   /** 사용자가 직접 시작한 세션을 카드의 실행 회차로 기록한다. */
@@ -1250,13 +1255,15 @@ export class RunService implements RunsBridge, vscode.Disposable {
     const latest = new Map<string, CardSession>();
     for (const run of runsOfCard(this.state, cardId)) {
       const key = `${run.tool}:${run.toolSessionId ?? `run-${run.runId}`}`;
-      latest.set(key, { tool: run.tool, sessionId: run.toolSessionId, status: run.status });
+      latest.delete(key);
+      latest.set(key, { tool: run.tool, sessionId: run.toolSessionId, status: run.status, at: run.lastSeenAt });
     }
     for (const role of ROLES) {
       const b = this.sessions[cardId]?.[role];
       if (b && !latest.has(`${b.tool}:${b.sessionId}`)) latest.set(`${b.tool}:${b.sessionId}`, { tool: b.tool, sessionId: b.sessionId, status: 'waiting' });
     }
-    return [...latest.values()];
+    // 카드에는 앞의 몇 개만 보이므로 최근 세션이 앞에 온다.
+    return [...latest.values()].sort((a, b) => (b.at ?? '\uffff').localeCompare(a.at ?? '\uffff'));
   }
 
   async installHooksCommand(): Promise<void> {

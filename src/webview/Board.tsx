@@ -181,6 +181,7 @@ function CardTile({
       : view.sessions.some((x) => x.status === 'running' || x.status === 'stopping')
         ? 'running'
         : '';
+  const attention = (['error', 'unknown', 'input_required'] as const).find((st) => view.sessions.some((x) => x.status === st));
   const activity = view.activity;
   const activityText = activity?.file
     ? t('activity.editing', { file: activity.file })
@@ -251,8 +252,10 @@ function CardTile({
           </div>
         </div>
       )}
-      {(view.rereviewRequired || view.duplicate || card.manualDone || view.worktreeMissing) && (
+      {(attention || activity?.unread || view.rereviewRequired || view.duplicate || card.manualDone || view.worktreeMissing) && (
         <div className="card-badges">
+          {attention && <span className={`badge ${attention === 'input_required' ? 'warn' : 'error'}`}>{t(`chip.${attention}`)}</span>}
+          {activity?.unread && !attention && <span className="badge unread" title={t('card.unread')}>{t('card.unreadBadge')}</span>}
           {view.rereviewRequired && <span className="badge warn">{t('card.rereview')}</span>}
           {view.duplicate && <span className="badge error">{t('card.duplicate')}</span>}
           {card.manualDone && <span className="badge">{t('card.manualDone')}</span>}
@@ -320,6 +323,7 @@ function AgentChips({ dir, sessions }: { dir: string; sessions: CardSession[] })
               {TOOL_GLYPH[s.tool]}
             </span>
             {s.tool}
+            {s.at && <span className="chip-date">{shortDate(localDate(s.at))}</span>}
             <RunIcon status={s.status} label={state} />
             {ATTENTION.has(s.status) && <span className="chip-state">{t(`chip.${s.status as 'input_required' | 'error' | 'unknown'}`)}</span>}
           </>

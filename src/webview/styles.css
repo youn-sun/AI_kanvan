@@ -208,6 +208,7 @@ code { font-family: var(--vscode-editor-font-family); font-size: 0.95em; }
 .agent-chip.r-input_required { background: color-mix(in srgb, var(--c-attention) 18%, transparent); }
 .agent-chip.r-error, .agent-chip.r-unknown { background: color-mix(in srgb, var(--c-failed) 18%, transparent); }
 .chip-state { font-weight: 600; }
+.chip-date { color: var(--muted); font-variant-numeric: tabular-nums; }
 .agent-chip.r-input_required .chip-state { color: var(--c-attention); }
 .agent-chip.r-error .chip-state, .agent-chip.r-unknown .chip-state { color: var(--c-failed); }
 button.agent-chip {
@@ -254,6 +255,7 @@ button .icon { margin-right: 4px; }
 }
 .badge.error, .run-error, .run-unknown { color: var(--error); border-color: var(--error); }
 .badge.warn, .run-input_required, .run-stopping { color: var(--warn); border-color: var(--warn); }
+.badge.unread { color: var(--c-running); border-color: var(--c-running); }
 .badge.ok, .run-running { color: var(--ok); border-color: var(--ok); }
 
 .new-card { display: flex; gap: 4px; }

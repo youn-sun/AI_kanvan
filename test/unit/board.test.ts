@@ -50,6 +50,14 @@ const card = (id: string, extra: Partial<Card> = {}): Card => ({
   ...extra,
 });
 
+describe('multi-category headings', () => {
+  it('counts an item in every tag of its heading', () => {
+    const items = parseChecklist(['## [BE][ML] 지역 매핑', '- [x] 별칭 표', '- [ ] 부모 계층', '### 세부', '- [ ] 상속'].join('\n'));
+    expect(items.map((i) => i.tags)).toEqual([['BE', 'ML'], ['BE', 'ML'], ['BE', 'ML']]);
+    expect(tagProgress(items)).toEqual({ be: { done: 1, total: 3 }, ml: { done: 1, total: 3 } });
+  });
+});
+
 describe('item categories (CT-1 ~ CT-4)', () => {
   const items = parseChecklist(plan);
 
