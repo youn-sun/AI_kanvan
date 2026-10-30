@@ -406,6 +406,37 @@ describe('recovery and sessions', () => {
     expect(old!.summary).toBeUndefined();
     expect(moved).toMatchObject({ external: true, toolSessionId: 'MOVE', summary: '두 번째 카드 작업' });
   });
+
+  it('links a session from outside the board without editing sessions.json (agentBoard.linkSession)', async () => {
+    const card = await newCard({ implementer: 'claude' });
+    const inbox = new RunStore(repo.localDir).inboxDir;
+    await fs.mkdir(inbox, { recursive: true });
+    const write = (name: string, input: unknown) =>
+      fs.writeFile(path.join(inbox, `${name}.json`), JSON.stringify({ tool: 'claude', receivedAt: new Date().toISOString(), input }));
+    await write('000000000000001-a', { hook_event_name: 'SessionStart', session_id: 'AGENT', cwd: '/somewhere/else' });
+    await service.processInbox();
+    expect(service.unlinkedSessions().map((u) => u.sessionId)).toEqual(['AGENT']);
+
+    // 잘못된 인자, 없는 카드, 역할에 지정된 도구와 다른 도구는 연결하지 않는다.
+    expect(await service.connectSession(card.id, 'owner', 'claude', 'AGENT')).toBe(false);
+    expect(await service.connectSession('TASK-99', 'implementer', 'claude', 'AGENT')).toBe(false);
+    expect(await service.connectSession(card.id, 'implementer', 'codex', 'AGENT')).toBe(false);
+    expect(await new RunStore(repo.localDir).loadSessions()).toEqual({});
+
+    expect(await service.connectSession(card.id, 'implementer', 'claude', 'AGENT')).toBe(true);
+    expect(await new RunStore(repo.localDir).loadSessions()).toEqual({ [card.id]: { implementer: { tool: 'claude', sessionId: 'AGENT' } } });
+    expect(service.unlinkedSessions()).toEqual([]);
+    expect(board.posted.some((m) => m.type === 'runs' && m.dir === card.id && m.sessions.implementer === 'Claude Code · AGENT')).toBe(true);
+
+    // 연결 후 그 세션의 Hook 이벤트는 카드로 간다.
+    await write('000000000000002-b', { hook_event_name: 'Stop', session_id: 'AGENT', last_assistant_message: '연결 확인' });
+    await service.processInbox();
+    expect((await runsOf(card.id))[0]).toMatchObject({ external: true, toolSessionId: 'AGENT', summary: '연결 확인' });
+
+    // 다른 카드에 같은 세션을 연결할 수 없다 (E-6).
+    const other = await newCard({ implementer: 'claude' });
+    expect(await service.connectSession(other.id, 'implementer', 'claude', 'AGENT')).toBe(false);
+  });
 });
 
 describe('opening a session from the card', () => {

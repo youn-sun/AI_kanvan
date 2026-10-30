@@ -87,6 +87,23 @@ export function activate(context: vscode.ExtensionContext): { controller?: Board
       await runService.detectTools();
       await controller!.reload();
     }),
+    // 에이전트·다른 확장이 세션을 카드에 연결한다. 방금 만든 카드도 찾도록 먼저 다시 읽는다.
+    vscode.commands.registerCommand('agentBoard.linkSession', async (cardId?: string, role?: string, tool?: string, sessionId?: string) => {
+      if (!requireController() || !runService) return false;
+      await ready;
+      await controller!.reload();
+      return runService.connectSession(cardId, role, tool, sessionId);
+    }),
+    // 터미널의 에이전트는 명령을 직접 부를 수 없어서 URI로 받는다.
+    // 예: code --open-url "vscode://agent-board.agent-board/linkSession?card=TASK-1&role=implementer&tool=claude&session=<id>"
+    vscode.window.registerUriHandler({
+      handleUri: (uri) => {
+        if (uri.path !== '/linkSession') return;
+        const q = new URLSearchParams(uri.query);
+        const get = (k: string) => q.get(k) ?? undefined;
+        void vscode.commands.executeCommand('agentBoard.linkSession', get('card'), get('role'), get('tool'), get('session'));
+      },
+    }),
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration('agentBoard.toolPaths') && runService) await runService.detectTools();
       // 설정 화면의 "이 기기" 값이 바뀌면 다시 그린다.

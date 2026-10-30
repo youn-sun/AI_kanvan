@@ -14,7 +14,9 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "workspaceContains:.agent-board"
+    "workspaceContains:.agent-board",
+    "onCommand:agentBoard.linkSession",
+    "onUri"
   ],
   "contributes": {
     "commands": [

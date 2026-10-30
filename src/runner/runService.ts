@@ -1041,6 +1041,51 @@ export class RunService implements RunsBridge, vscode.Disposable {
     this.board.refresh();
   }
 
+  /**
+   * `agentBoard.linkSession` 명령. 보드 밖(에이전트·다른 확장)에서 세션을 카드 역할에 연결한다.
+   * sessions.json을 직접 고치면 메모리의 연결에 반영되지 않으므로 세션 선택과 같은 bind 경로를 탄다.
+   */
+  async connectSession(cardId: unknown, role: unknown, tool: unknown, sessionId: unknown): Promise<boolean> {
+    if (!this.ready) return false;
+    await this.ready;
+    if (
+      typeof cardId !== 'string' ||
+      !ROLES.includes(role as Role) ||
+      !TOOL_IDS.includes(tool as ToolId) ||
+      typeof sessionId !== 'string' ||
+      !sessionId
+    ) {
+      void vscode.window.showWarningMessage(this.board.t('msg.linkSessionArgs'));
+      return false;
+    }
+    const r = role as Role;
+    const t = tool as ToolId;
+    const card = this.board.getCard(cardId);
+    if (!card) {
+      void vscode.window.showWarningMessage(this.board.t('msg.cardNotFound', { id: cardId }));
+      return false;
+    }
+    // 역할에 다른 도구가 지정돼 있으면 연결해도 이어 실행할 수 없다 (launch가 무시한다).
+    const assigned = card.agents[r]?.tool;
+    if (assigned && assigned !== t) {
+      void vscode.window.showWarningMessage(
+        this.board.t('msg.toolMismatch', { role: this.board.t(`role.${r}`), tool: this.board.t(`tool.${assigned}`) }),
+      );
+      return false;
+    }
+    if (!(await this.bind(cardId, r, t, sessionId))) return false;
+    if (this.unlinked.some((u) => u.tool === t && u.sessionId === sessionId)) {
+      this.unlinked = this.unlinked.filter((u) => !(u.tool === t && u.sessionId === sessionId));
+      await this.store.saveUnlinked(this.unlinked);
+    }
+    await this.postRuns(cardId);
+    this.board.refresh();
+    void vscode.window.showInformationMessage(
+      this.board.t('msg.sessionLinked', { tool: this.board.t(`tool.${t}`), id: cardId, role: this.board.t(`role.${r}`) }),
+    );
+    return true;
+  }
+
   // ---- Hook ----
 
   /** Hook 스크립트가 남긴 이벤트를 받은 순서대로 반영한다. */
