@@ -65,6 +65,8 @@ export interface Card {
   dependsOn?: string[];
   /** Done으로 옮긴 시각. Done에서 나가면 지운다 */
   doneAt?: string;
+  /** 중요 표시 */
+  starred?: boolean;
   createdAt: string;
   updatedAt: string;
 }

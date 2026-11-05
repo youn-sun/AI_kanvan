@@ -7,6 +7,7 @@ import { categoriesOf, placedCards } from './cards';
 import { CanvasTab } from './CanvasTab';
 import { DocEditor } from './DocEditor';
 import { Runs } from './Runs';
+import { StarToggle } from './StarToggle';
 import { send, useT } from './vscode';
 
 type Tab = 'canvas' | 'overview' | TaskDoc | 'runs';
@@ -46,6 +47,7 @@ export function CardPage({ view, state, onBack }: { view: CardView; state: Board
         <button className="link-button" onClick={onBack}>
           ← {t('page.back')}
         </button>
+        <StarToggle card={card} />
         <span className="card-id">{card.id}</span>
         <span className="muted">
           {t('page.updated', { date: localDate(card.updatedAt) })} · {card.workspace?.branch ?? t('page.noBranch')}

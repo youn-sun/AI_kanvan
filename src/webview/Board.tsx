@@ -5,6 +5,7 @@ import { KANBAN_STATUSES, type Card, type Category, type KanbanStatus, type Tool
 import type { BoardState, CardSession } from '../shared/protocol';
 import { ATTENTION, categoriesOf, columnCounts, elapsed, hiddenStatuses, matchesFilter, placedCards, shortDate, type BoardFilter, type Placed } from './cards';
 import { BranchIcon, LinkIcon, RunIcon, StatusIcon } from './icons';
+import { StarToggle } from './StarToggle';
 import { send, useT } from './vscode';
 
 type Props = { state: BoardState; filter: BoardFilter; onSelect: (dir: string) => void; onFilter: (f: BoardFilter) => void };
@@ -244,7 +245,10 @@ function CardTile({
           {activity?.unread && <i className="unread-dot" role="img" aria-label={t('card.unread')} title={t('card.unread')} />}
           {card.title}
         </span>
-        <span className="card-id">{card.id}</span>
+        <span className="card-ids">
+          <StarToggle card={card} />
+          <span className="card-id">{card.id}</span>
+        </span>
       </div>
       {progress.total > 0 && (
         <div className="card-progress" aria-label={t('detail.progress')}>
