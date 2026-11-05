@@ -41,6 +41,7 @@ export function Settings({ state, onClose }: { state: BoardState; onClose: () =>
       <AgentsSection state={state} readOnly={sharedReadOnly} />
       <ReviewSection state={state} readOnly={sharedReadOnly} errors={errors} clearError={clearError} />
       <AutoCreateSection machine={state.machine} />
+      <JiraSection state={state} readOnly={sharedReadOnly} />
     </div>
   );
 }
@@ -349,6 +350,39 @@ function AutoCreateSection({ machine }: { machine: MachineSettings }) {
           <option value="none">{t('settings.matcherNone')}</option>
         </select>
       </label>
+    </Section>
+  );
+}
+
+/** 카드 → Jira 티켓 발급. 사이트·프로젝트는 board.json(팀 공유), 계정·토큰은 이 기기 비밀 저장소에 둔다. */
+function JiraSection({ state, readOnly }: { state: BoardState; readOnly: boolean }) {
+  const t = useT();
+  const jira = state.board?.jira;
+  const save = (site: string, projectKey: string) => send({ type: 'setJiraSettings', site, projectKey });
+  return (
+    <Section title={t('settings.jira')} scope="mixed" hint={t('settings.jiraHint')}>
+      <div className="field-row">
+        <label className="field">
+          <span>
+            {t('settings.jiraSite')} <ScopeLabel scope="shared" />
+          </span>
+          <CommitInput value={jira?.site ?? ''} placeholder="example.atlassian.net" disabled={readOnly} onCommit={(v) => save(v, jira?.projectKey ?? '')} />
+        </label>
+        <label className="field">
+          <span>
+            {t('settings.jiraProject')} <ScopeLabel scope="shared" />
+          </span>
+          <CommitInput value={jira?.projectKey ?? ''} placeholder="FDE" disabled={readOnly} onCommit={(v) => save(jira?.site ?? '', v)} />
+        </label>
+      </div>
+      <div className="inline">
+        <ScopeLabel scope="machine" />
+        <span className="muted">{state.jiraAccount ? t('settings.jiraAccount', { email: state.jiraAccount }) : t('settings.jiraNoAccount')}</span>
+        <button disabled={!jira} onClick={() => send({ type: 'jiraConnect' })}>
+          {t('settings.jiraConnect')}
+        </button>
+        {state.jiraAccount && <button onClick={() => send({ type: 'jiraDisconnect' })}>{t('settings.jiraDisconnect')}</button>}
+      </div>
     </Section>
   );
 }

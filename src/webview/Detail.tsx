@@ -6,10 +6,12 @@ import type { BoardState, CardPatch, CardView } from '../shared/protocol';
 import { categoriesOf, placedCards } from './cards';
 import { CanvasTab } from './CanvasTab';
 import { DocEditor } from './DocEditor';
+import { ApprovalControl } from './Approval';
+import { JiraTab } from './JiraTab';
 import { Runs } from './Runs';
 import { send, useT } from './vscode';
 
-type Tab = 'canvas' | 'overview' | TaskDoc | 'runs';
+type Tab = 'canvas' | 'overview' | TaskDoc | 'runs' | 'jira';
 
 /**
  * TASK-3 CP-1 ~ CP-3: 카드를 누르면 보드 대신 전체 화면으로 열리는 카드 화면.
@@ -36,9 +38,18 @@ export function CardPage({ view, state, onBack }: { view: CardView; state: Board
   }, [onBack]);
 
   if (!card) return null;
-  const tabs: Tab[] = ['canvas', 'overview', ...TASK_DOCS, 'runs'];
+  // Jira 탭은 보드 설정에 Jira 사이트·프로젝트가 있을 때만 보인다.
+  const tabs: Tab[] = ['canvas', 'overview', ...TASK_DOCS, 'runs', ...(state.board?.jira ? (['jira'] as const) : [])];
   const tabLabel = (x: Tab) =>
-    x === 'canvas' ? t('tab.canvas') : x === 'overview' ? t('detail.overview') : x === 'runs' ? t('detail.runs') : t(`doc.${x}`);
+    x === 'canvas'
+      ? t('tab.canvas')
+      : x === 'overview'
+        ? t('detail.overview')
+        : x === 'runs'
+          ? t('detail.runs')
+          : x === 'jira'
+            ? card.jira?.key ?? t('tab.jira')
+            : t(`doc.${x}`);
 
   return (
     <div className="card-page" aria-label={card.id}>
@@ -69,6 +80,7 @@ export function CardPage({ view, state, onBack }: { view: CardView; state: Board
         {tab === 'overview' && <Overview view={view} card={card} state={state} />}
         {(tab === 'intent' || tab === 'spec' || tab === 'plan') && <DocEditor key={tab} dir={view.dir} doc={tab} categories={state.board?.categories} />}
         {tab === 'runs' && <Runs view={view} card={card} state={state} />}
+        {tab === 'jira' && <JiraTab key={view.dir} view={view} card={card} state={state} />}
       </div>
     </div>
   );
@@ -127,6 +139,8 @@ function Overview({ view, card, state }: { view: CardView; card: Card; state: Bo
         <span>{t('detail.progress')}</span>
         <strong>{formatProgress(view.progress)}</strong>
       </div>
+
+      <ApprovalControl view={view} card={card} />
 
       <div className="field">
         <span>{t('detail.categories')}</span>

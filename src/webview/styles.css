@@ -544,3 +544,20 @@ pre.text, pre.diff {
 .report ul, .run-detail ul { margin: var(--space-1) 0; padding-left: 18px; }
 .run-detail li { margin: 2px 0; }
 .run-detail li .badge { margin-right: 4px; }
+
+/* ---- Jira 티켓 발급 ---- */
+.jira { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+.jira textarea { width: 100%; resize: vertical; font-family: inherit; }
+.jira .jira-title { flex: 3; }
+.jira .jira-service { flex: 1; }
+.actions.start { justify-content: flex-start; }
+.jira-preview { margin: 0; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; background: color-mix(in srgb, var(--vscode-foreground) 5%, transparent); border: 1px solid var(--hairline); border-radius: var(--radius); font-family: var(--vscode-editor-font-family); font-size: 12px; }
+.jira-lint { margin: 0; padding-left: 18px; }
+.jira-lint li.error { color: var(--error); }
+.jira-lint li.warn { color: var(--warn); }
+.jira-similar { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.jira-similar li { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.jira-link { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.jira-link input { width: 120px; }
+.card-meta .jira-key { font-family: var(--vscode-editor-font-family); }
+.approval-note.warn { color: var(--warn); }

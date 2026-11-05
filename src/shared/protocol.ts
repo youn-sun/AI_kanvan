@@ -3,7 +3,9 @@
 import type { TagProgress } from '../core/board';
 import type { ChecklistItem } from '../core/checklist';
 import type { CardActivity } from '../core/activity';
+import type { ApprovalState } from '../core/approval';
 import type { ImplementerReport, ReportStatus, ToneIssue } from '../core/report';
+import type { JiraIssueRef, JiraIssueType, TicketDraft } from '../core/jira';
 import type { ReviewResult } from '../core/runs';
 import type {
   AgentAssignment,
@@ -75,6 +77,8 @@ export interface CardView {
   runStatus: Partial<Record<Role, RunStatus>>;
   rereviewRequired: boolean;
   worktreeMissing: boolean;
+  /** 카드 승인 상태. 승인한 카드만 Jira 티켓으로 발급한다 */
+  approval: ApprovalState;
 }
 
 export interface ToolInfo {
@@ -101,6 +105,8 @@ export interface BoardState {
   machine: MachineSettings;
   /** 카드를 판별하지 못한 세션 (E-8) */
   unlinkedSessions: { tool: ToolId; sessionId: string; cwd: string }[];
+  /** 이 기기에서 Jira에 연결한 계정 이메일 */
+  jiraAccount?: string;
 }
 
 export interface CardPatch {
@@ -158,6 +164,17 @@ export type ToExtension =
   | { type: 'setToolEnabled'; tool: ToolId; enabled: boolean }
   | { type: 'updateBoardSettings'; patch: Partial<BoardSettings> }
   | { type: 'setMachineSetting'; key: 'toolPaths' | 'autoCreateCards' | 'matcherTool'; value: unknown }
+  /** 둘 다 비우면 Jira 연동을 끈다 */
+  | { type: 'setJiraSettings'; site: string; projectKey: string }
+  /** 사용자가 카드 문서를 확인하고 승인한다. 승인은 지금 intent.md·spec.md 내용에 묶인다 */
+  | { type: 'approveCard'; dir: string }
+  | { type: 'revokeApproval'; dir: string }
+  | { type: 'jiraConnect' }
+  | { type: 'jiraDisconnect' }
+  | { type: 'jiraDraft'; dir: string }
+  | { type: 'jiraCreate'; dir: string; draft: TicketDraft }
+  | { type: 'jiraLink'; dir: string; key: string }
+  | { type: 'jiraUnlink'; dir: string }
   | { type: 'detectTools' }
   | { type: 'loadCanvas'; dir: string }
   | { type: 'unwatchCanvas'; dir: string }
@@ -241,4 +258,8 @@ export type ToWebview =
   /** 바로 고치는 사이 파일이 다른 곳에서 바뀌었다 */
   | { type: 'docTextConflict'; dir: string }
   /** 설정 화면 입력 검증 실패 (ST-7) */
-  | { type: 'settingError'; field: string; message: string };
+  | { type: 'settingError'; field: string; message: string }
+  /** 카드 문서로 만든 티켓 초안과 유형·필드, 중복 검사용 최근 티켓 */
+  | { type: 'jiraDraft'; dir: string; draft?: TicketDraft; types?: JiraIssueType[]; recent?: JiraIssueRef[]; error?: string }
+  /** uncertain: 요청은 보냈지만 만들어졌는지 확인하지 못했다 */
+  | { type: 'jiraResult'; dir: string; key?: string; error?: string; uncertain?: boolean };

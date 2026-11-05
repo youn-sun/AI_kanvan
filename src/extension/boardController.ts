@@ -27,6 +27,9 @@ import { BOARD_DIR, BoardRepository, type BoardSnapshot } from '../storage/repos
 import { translate, type Locale, type MessageKey } from '../shared/i18n';
 import type { BoardState, CardPatch, CardView, MachineSettings, ToExtension, ToWebview } from '../shared/protocol';
 import { figuresFileFor, sharedDocKind, type CanvasController } from './canvasController';
+import type { JiraController } from './jiraController';
+import { normalizeSite, type JiraSettings } from '../core/jira';
+import { approvalState } from '../core/approval';
 import { NO_RUNS, type RunsBridge } from './runsBridge';
 import { renderWebviewHtml } from './webviewHtml';
 
@@ -48,6 +51,8 @@ export class BoardController implements BoardAccess, vscode.Disposable {
   runs: RunsBridge = NO_RUNS;
   /** 카드 문서 탭의 canvas (TASK-3) */
   canvas?: CanvasController;
+  /** 카드 → Jira 티켓 발급 */
+  jira?: JiraController;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -133,6 +138,10 @@ export class BoardController implements BoardAccess, vscode.Disposable {
   }
 
   /** 쓰기 직전에 디스크의 최신 카드를 읽는다. */
+  freshCardOf(id: string): Promise<Card | undefined> {
+    return this.freshCard(id);
+  }
+
   private async freshCard(id: string): Promise<Card | undefined> {
     const dir = this.snapshot?.cards.find((c) => c.card?.id === id)?.dir ?? id;
     return (await this.repo.loadCard(dir)).card ?? this.findCard(id);
@@ -199,6 +208,10 @@ export class BoardController implements BoardAccess, vscode.Disposable {
     return this.snapshot?.board.settings ?? DEFAULT_SETTINGS;
   }
 
+  jiraSettings(): JiraSettings | undefined {
+    return this.snapshot?.board.jira;
+  }
+
   sharedDocs(): SharedDoc[] {
     return this.snapshot?.board.sharedDocs ?? [];
   }
@@ -232,6 +245,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
       hasCanvas: c.hasCanvas,
       sessions: c.card ? this.runs.cardSessions(c.card.id) : [],
       activity: c.card ? this.runs.cardActivity(c.card.id) : undefined,
+      approval: approvalState(c.card?.approval, c.docsHash),
     }));
     return {
       initialized: this.initialized,
@@ -246,6 +260,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
       hooksInstalled: this.runs.hooksInstalled(),
       hookTools: this.runs.hookToolList(),
       machine: this.machineSettings(),
+      jiraAccount: this.jira?.account,
     };
   }
 
@@ -260,6 +275,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
   async handle(msg: ToExtension): Promise<void> {
     if (await this.runs.handle(msg)) return;
     if (this.canvas && (await this.canvas.handle(msg))) return;
+    if (this.jira && (await this.jira.handle(msg))) return;
     switch (msg.type) {
       case 'ready':
         return this.reload();
@@ -398,6 +414,28 @@ export class BoardController implements BoardAccess, vscode.Disposable {
             return undefined;
           }
           return { ...board, settings: { ...board.settings, ...msg.patch } };
+        });
+      case 'approveCard':
+      case 'revokeApproval': {
+        // 승인은 사용자가 이 화면에서 누를 때만 남긴다. 지금 디스크의 문서 내용에 묶는다.
+        const card = await this.freshCard(msg.dir);
+        if (!card) return;
+        const next: Card = { ...card, updatedAt: new Date().toISOString() };
+        if (msg.type === 'approveCard') next.approval = { at: next.updatedAt, hash: await this.repo.docsHash(msg.dir) };
+        else delete next.approval;
+        await this.saveCard(next);
+        return this.reload();
+      }
+      case 'setJiraSettings':
+        return this.editBoard(async (board) => {
+          const site = normalizeSite(msg.site);
+          const projectKey = msg.projectKey.trim().toUpperCase();
+          if (!site && !projectKey) {
+            const next = { ...board };
+            delete next.jira;
+            return next;
+          }
+          return { ...board, jira: { site, projectKey } };
         });
       case 'setMachineSetting':
         // ST-1: "이 기기" 설정은 VS Code 사용자 설정에 둔다.

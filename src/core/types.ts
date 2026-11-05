@@ -1,5 +1,8 @@
 // 보드 데이터 모델. spec.md 1.2·1.3절 참고.
 
+import type { CardApproval } from './approval';
+import type { JiraSettings } from './jira';
+
 export const KANBAN_STATUSES = ['todo', 'in_progress', 'review', 'suspended', 'done'] as const;
 export type KanbanStatus = (typeof KANBAN_STATUSES)[number];
 
@@ -65,6 +68,10 @@ export interface Card {
   dependsOn?: string[];
   /** Done으로 옮긴 시각. Done에서 나가면 지운다 */
   doneAt?: string;
+  /** 이 카드로 발급했거나 연결한 Jira 티켓 */
+  jira?: { key: string };
+  /** 사용자가 카드 문서를 확인하고 승인한 기록. 승인한 카드만 Jira 티켓으로 발급한다 */
+  approval?: CardApproval;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,6 +112,8 @@ export interface BoardConfig {
   categories: Category[];
   /** 이 보드에서 연결할 수 있는 에이전트 도구 */
   enabledTools: ToolId[];
+  /** 카드로 티켓을 발급할 Jira 사이트·프로젝트. 계정·토큰은 기기마다 따로 둔다 */
+  jira?: JiraSettings;
 }
 
 export const DEFAULT_SETTINGS: BoardSettings = {

@@ -1,7 +1,9 @@
 // 레포 안 `.agent-board/` 읽기·쓰기. spec 1절.
 
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import { APPROVAL_DOCS, approvalText } from '../core/approval';
 import { tagProgress, type TagProgress } from '../core/board';
 import { itemsProgress, parseChecklist } from '../core/checklist';
 import { findDuplicateIds, isTaskId, nextTaskId } from '../core/ids';
@@ -37,6 +39,8 @@ export interface LoadedCard {
   tags: TagProgress;
   /** 카드 폴더에 canvas.tsx가 있는지 (TASK-3 CP-2) */
   hasCanvas: boolean;
+  /** 승인 대상 문서의 지금 내용 해시 */
+  docsHash: string;
 }
 
 export interface BoardSnapshot {
@@ -156,23 +160,30 @@ export class BoardRepository {
     }
   }
 
+  /** 승인 대상 문서(intent.md·spec.md)의 지금 내용 해시 */
+  async docsHash(dir: string): Promise<string> {
+    const docs = await Promise.all(APPROVAL_DOCS.map((doc) => readTextIfExists(this.taskDocPath(dir, doc))));
+    return createHash('sha256').update(approvalText(docs)).digest('hex');
+  }
+
   async loadCard(dir: string): Promise<LoadedCard> {
     const items = parseChecklist((await readTextIfExists(this.taskDocPath(dir, 'plan'))) ?? '');
     const progress = itemsProgress(items);
     const tags = tagProgress(items);
     const hasCanvas = await pathExists(this.canvasPath(dir));
+    const docsHash = await this.docsHash(dir);
     const text = await readTextIfExists(this.cardFile(dir));
-    if (text === undefined) return { dir, error: 'invalid', errorDetail: 'card.json missing', progress, tags, hasCanvas };
-    if (hasConflictMarkers(text)) return { dir, error: 'conflict', progress, tags, hasCanvas };
+    if (text === undefined) return { dir, error: 'invalid', errorDetail: 'card.json missing', progress, tags, hasCanvas, docsHash };
+    if (hasConflictMarkers(text)) return { dir, error: 'conflict', progress, tags, hasCanvas, docsHash };
     try {
       const { card, migrated } = migrateCard(JSON.parse(text));
       if (migrated) {
         await this.backup(`${dir}-card.json`, text);
         await this.writeCard(dir, card);
       }
-      return { dir, card, progress, tags, hasCanvas };
+      return { dir, card, progress, tags, hasCanvas, docsHash };
     } catch (err) {
-      return { dir, error: 'invalid', errorDetail: (err as Error).message, progress, tags, hasCanvas };
+      return { dir, error: 'invalid', errorDetail: (err as Error).message, progress, tags, hasCanvas, docsHash };
     }
   }
 
