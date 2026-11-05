@@ -53,7 +53,8 @@ function parseLines(lines: string[], from: number, to: number): Block[] {
   while (i < to) {
     const line = lines[i]!;
     const start = i;
-    if (!line.trim()) {
+    // 빈 줄과 한 줄짜리 HTML 주석(규칙의 절별 도구 표시 등)은 그리지 않는다.
+    if (!line.trim() || /^\s*<!--.*-->\s*$/.test(line)) {
       i += 1;
       continue;
     }

@@ -336,14 +336,28 @@ function Blocks({ blocks, ctx }: { blocks: Block[]; ctx: BlockContext }) {
 }
 
 /** md 문서를 바로 고칠 수 있게 그린다. */
-export function EditableMarkdown({ dir, target, source, options }: { dir: string; target: DocTarget; source: string; options?: DocumentOptions }) {
+export function EditableMarkdown({
+  dir,
+  target,
+  source,
+  options,
+  range,
+}: {
+  dir: string;
+  target: DocTarget;
+  source: string;
+  options?: DocumentOptions;
+  /** 이 줄 범위 [시작, 끝)의 블록만 그린다. 고친 위치는 전체 원문 기준이다 */
+  range?: [number, number];
+}) {
   const t = useT();
   const { skipTitle, demote = 0 } = options ?? {};
+  const [from, to] = range ?? [0, Infinity];
   const blocks = useMemo(() => {
-    let all = parseMarkdown(source);
+    let all = parseMarkdown(source).filter((b) => b.line >= from && b.line < to);
     if (skipTitle && all[0]?.kind === 'heading' && all[0].level === 1) all = all.slice(1);
     return all.map((b) => (b.kind === 'heading' ? { ...b, level: Math.min(6, b.level + demote) } : b));
-  }, [source, skipTitle, demote]);
+  }, [source, skipTitle, demote, from, to]);
   const ctx: BlockContext = {
     source,
     apply: (edit) => {
