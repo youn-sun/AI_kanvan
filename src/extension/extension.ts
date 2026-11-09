@@ -6,6 +6,7 @@ import { BoardRepository } from '../storage/repository';
 import { toLocale, translate } from '../shared/i18n';
 import { BoardController } from './boardController';
 import { CanvasController } from './canvasController';
+import { JiraController } from './jiraController';
 
 let controller: BoardController | undefined;
 
@@ -33,10 +34,13 @@ export function activate(context: vscode.ExtensionContext): { controller?: Board
     });
     controller.runs = runService;
     controller.canvas = new CanvasController(controller, runService, context.asAbsolutePath('docs/canvas-guide.md'));
+    const jira = new JiraController(controller, context.secrets);
+    controller.jira = jira;
     context.subscriptions.push(controller, runService);
     // V-1: 활성화하면 실행 기록과 실제 프로세스를 대조한다.
-    ready = controller
-      .reload()
+    ready = jira
+      .init()
+      .then(() => controller!.reload())
       .then(() => runService!.init())
       .then(() => controller!.reload())
       .catch((err) => void vscode.window.showErrorMessage(`Agent Board: ${(err as Error).message}`));
