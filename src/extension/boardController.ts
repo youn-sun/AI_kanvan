@@ -30,12 +30,14 @@ import { translate, type Locale, type MessageKey } from '../shared/i18n';
 import type { BoardState, CardPatch, CardView, MachineSettings, RulesState, ToExtension, ToWebview } from '../shared/protocol';
 import { figuresFileFor, sharedDocKind, type CanvasController } from './canvasController';
 import { NO_RUNS, type RunsBridge } from './runsBridge';
+import { BoardWebServer } from './webServer';
 import { renderWebviewHtml } from './webviewHtml';
 
 const RELOAD_DEBOUNCE_MS = 100;
 
 export class BoardController implements BoardAccess, vscode.Disposable {
   private panel?: vscode.WebviewPanel;
+  private web?: BoardWebServer;
   private snapshot?: BoardSnapshot;
   private initialized = false;
   private reloadTimer?: NodeJS.Timeout;
@@ -77,6 +79,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
   dispose(): void {
     clearTimeout(this.reloadTimer);
     this.panel?.dispose();
+    this.web?.dispose();
     this.sharedDocWatchers.forEach((d) => d.dispose());
     this.disposables.forEach((d) => d.dispose());
   }
@@ -98,6 +101,17 @@ export class BoardController implements BoardAccess, vscode.Disposable {
       this.watchedDocs.clear();
     });
     this.panel = panel;
+  }
+
+  /** 같은 보드를 브라우저에서 연다. 이 창이 열려 있는 동안 동작한다. */
+  async openInBrowser(): Promise<void> {
+    this.web ??= new BoardWebServer(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist').fsPath,
+      this.locale,
+      path.join(this.repo.localDir, 'web.json'),
+      (msg) => this.handle(msg).catch((err) => this.showError(err)),
+    );
+    await vscode.env.openExternal(vscode.Uri.parse(await this.web.start()));
   }
 
   scheduleReload(): void {
@@ -258,6 +272,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
 
   post(msg: ToWebview): void {
     void this.panel?.webview.postMessage(msg);
+    this.web?.post(msg);
   }
 
   private showError(err: unknown): void {
@@ -273,6 +288,8 @@ export class BoardController implements BoardAccess, vscode.Disposable {
       case 'init':
         await this.repo.init();
         return this.reload();
+      case 'openInBrowser':
+        return this.openInBrowser();
       case 'createCard':
         await this.createCard(msg.title);
         return this.reload();

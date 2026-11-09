@@ -52,6 +52,12 @@ export function activate(context: vscode.ExtensionContext): { controller?: Board
       await ready;
       await c.reload();
     }),
+    vscode.commands.registerCommand('agentBoard.openInBrowser', async () => {
+      const c = requireController();
+      if (!c) return;
+      await ready;
+      await c.openInBrowser();
+    }),
     vscode.commands.registerCommand('agentBoard.createCard', async () => {
       const c = requireController();
       if (!c) return;

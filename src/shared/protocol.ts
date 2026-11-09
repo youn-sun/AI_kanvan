@@ -146,6 +146,7 @@ export interface CardPatch {
 export type ToExtension =
   | { type: 'ready' }
   | { type: 'init' }
+  | { type: 'openInBrowser' }
   | { type: 'createCard'; title: string }
   | { type: 'updateCard'; id: string; patch: CardPatch }
   | { type: 'moveCard'; id: string; to: KanbanStatus; beforeId?: string; afterId?: string }

@@ -1,5 +1,6 @@
 {
   "command.open": "Open Board",
+  "command.openInBrowser": "Open Board in Browser",
   "command.createCard": "Create Card",
   "command.renumberCard": "Change Card ID",
   "command.installHooks": "Install Hooks for Agent Sessions",
