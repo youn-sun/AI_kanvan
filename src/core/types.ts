@@ -79,6 +79,16 @@ export interface SharedDoc {
   path: string;
   /** 보드 구분 태그(BE·FE 등). 공용 문서 표의 "구분" 열 */
   tags?: string[];
+  /** AI 규칙이면 넘길 도구와 적용 폴더. 보드가 도구별 규칙 파일을 만든다 */
+  rule?: AgentRule;
+}
+
+export interface AgentRule {
+  tools: ToolId[];
+  /** 레포 루트 기준 폴더. 빈 문자열이면 레포 전체 */
+  scope: string;
+  /** 내 PC에만: CLAUDE.local.md 같은 개인용 파일로 넘기고 git이 무시하게 한다 */
+  local?: boolean;
 }
 
 export interface BoardSettings {

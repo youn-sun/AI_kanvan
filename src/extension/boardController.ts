@@ -24,8 +24,10 @@ import { docHistory } from '../runner/git';
 import type { BoardAccess } from '../runner/runService';
 import { pathExists, writeFileAtomic } from '../storage/fsutil';
 import { BOARD_DIR, BoardRepository, type BoardSnapshot } from '../storage/repository';
+import { RULES_DIR, RulesSync } from '../storage/rulesSync';
+import { normalizeScope, setSectionTools } from '../core/agentRules';
 import { translate, type Locale, type MessageKey } from '../shared/i18n';
-import type { BoardState, CardPatch, CardView, MachineSettings, ToExtension, ToWebview } from '../shared/protocol';
+import type { BoardState, CardPatch, CardView, MachineSettings, RulesState, ToExtension, ToWebview } from '../shared/protocol';
 import { figuresFileFor, sharedDocKind, type CanvasController } from './canvasController';
 import { NO_RUNS, type RunsBridge } from './runsBridge';
 import { renderWebviewHtml } from './webviewHtml';
@@ -44,6 +46,8 @@ export class BoardController implements BoardAccess, vscode.Disposable {
   private reloading: Promise<unknown> = Promise.resolve();
   private saveGeneration = 0;
   private gitignoreChecked = false;
+  private readonly rules: RulesSync;
+  private rulesState: RulesState = { files: [], importable: [], duplicates: [] };
   private readonly disposables: vscode.Disposable[] = [];
   runs: RunsBridge = NO_RUNS;
   /** 카드 문서 탭의 canvas (TASK-3) */
@@ -54,6 +58,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
     readonly repo: BoardRepository,
     readonly locale: Locale,
   ) {
+    this.rules = new RulesSync(repo.root, repo.localDir, locale);
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(repo.root, `${BOARD_DIR}/**`));
     // S-7, M-2: 외부 편집·체크아웃·pull로 파일이 바뀌면 다시 읽는다.
     watcher.onDidChange(() => this.scheduleReload());
@@ -123,6 +128,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
       if (generation === this.saveGeneration) break;
     }
     this.snapshot = snapshot;
+    if (snapshot && !snapshot.boardError) this.rulesState = await this.rules.sync(snapshot.board);
     this.sharedDocMeta = await this.loadSharedDocMeta(snapshot);
     this.missingWorktrees = new Set();
     for (const card of this.cards) if (!(await this.worktreeExists(card))) this.missingWorktrees.add(card.id);
@@ -246,6 +252,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
       hooksInstalled: this.runs.hooksInstalled(),
       hookTools: this.runs.hookToolList(),
       machine: this.machineSettings(),
+      rules: this.rulesState,
     };
   }
 
@@ -326,6 +333,73 @@ export class BoardController implements BoardAccess, vscode.Disposable {
         });
       case 'removeSharedDoc':
         return this.editBoard(async (board) => ({ ...board, sharedDocs: board.sharedDocs.filter((d) => d.id !== msg.id) }));
+      case 'addRule':
+        return this.addRule();
+      case 'updateRule':
+        return this.editBoard(async (board) => {
+          const doc = board.sharedDocs.find((d) => d.id === msg.id);
+          if (!doc?.rule) return undefined;
+          const scope = msg.scope === undefined ? doc.rule.scope : normalizeScope(msg.scope);
+          if (scope.split('/').includes('..') || path.isAbsolute(scope)) {
+            void vscode.window.showWarningMessage(this.t('rules.badScope'));
+            return undefined;
+          }
+          const tools = msg.tools ? TOOL_IDS.filter((t) => msg.tools!.includes(t)) : doc.rule.tools;
+          const local = msg.local ?? doc.rule.local;
+          return mapDoc(board, msg.id, { rule: { tools, scope, ...(local && { local }) } });
+        });
+      case 'setRuleSection': {
+        const doc = this.snapshot?.board.sharedDocs.find((d) => d.id === msg.id);
+        if (!doc?.rule) return;
+        const file = path.join(this.repo.root, doc.path);
+        const current = (await fs.readFile(file, 'utf8').catch(() => undefined)) ?? '';
+        if (current !== msg.base) {
+          void vscode.window.showWarningMessage(this.t('rules.changedOutside'));
+          return this.reload();
+        }
+        await writeFileAtomic(file, setSectionTools(current, msg.line, msg.tools ?? undefined));
+        return this.reload();
+      }
+      case 'removeRule': {
+        const doc = this.snapshot?.board.sharedDocs.find((d) => d.id === msg.id);
+        if (!doc) return;
+        const ok = await vscode.window.showWarningMessage(this.t('rules.removeConfirm', { name: doc.name }), { modal: true }, this.t('rules.remove'));
+        if (!ok) return;
+        await this.editBoard(async (board) => ({ ...board, sharedDocs: board.sharedDocs.filter((d) => d.id !== msg.id) }));
+        if (doc.path.startsWith(`${RULES_DIR}/`)) await fs.rm(path.join(this.repo.root, doc.path), { force: true });
+        return this.reload();
+      }
+      case 'importRules':
+        return this.importRules();
+      case 'mergeRules':
+        return this.editBoard(async (board) => {
+          const keep = board.sharedDocs.find((d) => d.id === msg.keep);
+          const drop = board.sharedDocs.find((d) => d.id === msg.drop);
+          if (!keep?.rule || !drop?.rule) return undefined;
+          const tools = TOOL_IDS.filter((t) => keep.rule!.tools.includes(t) || drop.rule!.tools.includes(t));
+          const merged = mapDoc(board, keep.id, { rule: { ...keep.rule, tools } });
+          return { ...merged, sharedDocs: merged.sharedDocs.filter((d) => d.id !== drop.id) };
+        });
+      case 'overwriteRuleFile': {
+        const board = this.snapshot?.board;
+        if (!board) return;
+        this.rulesState = await this.rules.sync(board, new Set([msg.path]));
+        return this.reload();
+      }
+      case 'compareRuleFile': {
+        const file = this.rulesState.files.find((f) => f.path === msg.path);
+        if (!file) return;
+        const preview = await this.rules.writePreview(file);
+        await vscode.commands.executeCommand(
+          'vscode.diff',
+          vscode.Uri.file(path.join(this.repo.root, file.path)),
+          vscode.Uri.file(preview),
+          this.t('rules.diffTitle', { path: file.path }),
+        );
+        return;
+      }
+      case 'openRuleFile':
+        return this.openFile(path.join(this.repo.root, msg.path));
       case 'createDocTask': {
         const doc = this.snapshot?.board.sharedDocs.find((d) => d.id === msg.id);
         if (!doc) return;
@@ -603,6 +677,41 @@ export class BoardController implements BoardAccess, vscode.Disposable {
     await this.editBoard(async (board) =>
       this.repo.addSharedDoc(board, { name, category: pick.category as DocCategory, path: rel, tags: knownTags(board, tags.map((x) => x.tag)) }),
     );
+  }
+
+  private async addRule(): Promise<void> {
+    const name = await vscode.window.showInputBox({ prompt: this.t('rules.newName') });
+    if (!name?.trim()) return;
+    const used = new Set(this.snapshot?.board.sharedDocs.map((d) => d.path));
+    const stem = name.trim().replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'rule';
+    let rel = `${RULES_DIR}/${stem}.md`;
+    for (let n = 2; used.has(rel) || (await pathExists(path.join(this.repo.root, rel))); n += 1) rel = `${RULES_DIR}/${stem}-${n}.md`;
+    await writeFileAtomic(path.join(this.repo.root, rel), `# ${name.trim()}\n\n`);
+    await this.editBoard(async (board) =>
+      this.repo.addSharedDoc(board, { name: name.trim(), category: 'convention', path: rel, tags: [], rule: { tools: [...board.enabledTools], scope: '' } }),
+    );
+  }
+
+  /** 보드가 만들지 않은 CLAUDE.md·AGENTS.md·.cursor/rules를 규칙으로 옮기고, 그 자리에 보드가 만든 파일을 쓴다. */
+  private async importRules(): Promise<void> {
+    const files = this.rulesState.importable;
+    if (files.length === 0) return;
+    const ok = await vscode.window.showWarningMessage(
+      this.t('rules.importConfirm', { files: files.join(', ') }),
+      { modal: true },
+      this.t('rules.import'),
+    );
+    if (!ok) return;
+    let result: Awaited<ReturnType<RulesSync['importFiles']>> | undefined;
+    await this.editBoard(async (board) => {
+      result = await this.rules.importFiles(board);
+      return result.board;
+    });
+    if (!result) return;
+    this.rulesState = await this.rules.sync(result.board, new Set(result.replaced));
+    await this.rules.removeMoved(result.moved);
+    void vscode.window.showInformationMessage(this.t('rules.imported', { n: result.replaced.length }));
+    return this.reload();
   }
 
   /** 공용 문서 표의 일자·브랜치. 파일이 없는 문서는 비워 둔다 (D-2, D-3). */

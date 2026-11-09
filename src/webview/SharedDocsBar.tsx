@@ -8,7 +8,7 @@ import { send, useT } from './vscode';
 export function SharedDocsBar({ state, onOpen }: { state: BoardState; onOpen: (id: string) => void }) {
   const t = useT();
   const [open, setOpen] = useState<string>();
-  const docs = state.board?.sharedDocs ?? [];
+  const docs = (state.board?.sharedDocs ?? []).filter((d) => !d.rule);
   const categories = state.board?.categories ?? [];
   const tagName = (tag: string) => categories.find((c) => c.tag === tag)?.name ?? tag;
 
