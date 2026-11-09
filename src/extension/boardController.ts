@@ -439,6 +439,7 @@ export class BoardController implements BoardAccess, vscode.Disposable {
     if (patch.description !== undefined) next.description = patch.description || undefined;
     if (patch.relatedDocs !== undefined) next.relatedDocs = patch.relatedDocs;
     if (patch.autoReview !== undefined) next.autoReview = patch.autoReview;
+    if (patch.starred !== undefined) next.starred = patch.starred || undefined;
     // TASK-2 CD-3, CD-4: 일정과 선행 카드는 검증을 통과해야 저장한다.
     if (patch.startDate !== undefined) next.startDate = patch.startDate || undefined;
     if (patch.dueDate !== undefined) next.dueDate = patch.dueDate || undefined;

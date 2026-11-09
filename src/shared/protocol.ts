@@ -113,6 +113,7 @@ export interface CardPatch {
   startDate?: string;
   dueDate?: string;
   dependsOn?: string[];
+  starred?: boolean;
 }
 
 export type ToExtension =

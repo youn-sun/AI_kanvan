@@ -26,6 +26,7 @@
   /* 상태 색. VS Code 차트·테스트 색을 쓰고, 변수가 없는 환경(일부 Cursor 빌드)을 위해 기본값을 둔다. */
   --c-running: var(--vscode-charts-blue, #3794ff);
   --c-attention: var(--vscode-charts-orange, #d18616);
+  --c-star: var(--vscode-charts-yellow, #e2b714);
   --c-progress: var(--vscode-charts-yellow, #cca700);
   --c-review: var(--vscode-charts-green, #89d185);
   --c-done: var(--vscode-charts-purple, #b180d7);
@@ -439,6 +440,14 @@ pre.text, pre.diff {
 }
 .chip.attention { color: var(--c-attention); border-color: color-mix(in srgb, var(--c-attention) 60%, transparent); }
 .chip.attention.active { background: color-mix(in srgb, var(--c-attention) 20%, transparent); color: var(--c-attention); }
+.chip.starred { color: var(--c-star); border-color: color-mix(in srgb, var(--c-star) 60%, transparent); }
+.chip.starred.active { background: color-mix(in srgb, var(--c-star) 20%, transparent); color: var(--c-star); }
+.card-ids { display: inline-flex; align-items: baseline; gap: 4px; flex-shrink: 0; }
+.star-toggle { border: none; background: none; padding: 0 2px; font-size: 1em; line-height: 1; cursor: pointer; color: var(--muted); }
+.star-toggle.on { color: var(--c-star); }
+.star-toggle:hover { color: var(--c-star); }
+.card .star-toggle:not(.on) { visibility: hidden; }
+.card:hover .star-toggle, .card:focus-within .star-toggle, .star-toggle:focus-visible { visibility: visible; }
 .chip.active { background: var(--vscode-list-activeSelectionBackground, var(--track)); color: var(--vscode-list-activeSelectionForeground, inherit); border-color: transparent; }
 .done-since { display: inline-flex; align-items: center; gap: var(--space-2); margin-left: var(--space-2); }
 

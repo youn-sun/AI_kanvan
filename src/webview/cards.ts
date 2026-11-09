@@ -22,6 +22,8 @@ export interface BoardFilter {
   doneSince?: string;
   /** 사람이 볼 카드만 */
   attention?: boolean;
+  /** 중요 표시한 카드만 */
+  starred?: boolean;
   /** 직접 숨긴 열 */
   hiddenColumns?: KanbanStatus[];
   /** 카드가 없는 열을 숨긴다. 새 카드 버튼이 있는 할 일 열은 남긴다 */
@@ -61,6 +63,7 @@ export function elapsed(at: string, now = Date.now()): { unit: 'now' | 'minutes'
 export function matchesFilter(view: Placed, filter: BoardFilter, categories: Category[]): boolean {
   if (filter.category && !categoriesOf(view, categories).some((c) => c.tag === filter.category)) return false;
   if (filter.attention && !needsAttention(view)) return false;
+  if (filter.starred && !view.card.starred) return false;
   if (filter.doneSince && view.card.status === 'done') {
     const at = completedAt(view.card);
     if (!at || localDate(at) < filter.doneSince) return false;
