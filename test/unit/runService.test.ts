@@ -389,6 +389,28 @@ describe('recovery and sessions', () => {
     expect(service.runStatus(card.id)).toEqual({ implementer: 'input_required' });
     expect((await runsOf(card.id)).filter((r) => r.toolSessionId === 'EXT').length).toBe(2);
   });
+  it('shows the first request of unlinked sessions and can make a card from them or hide them', async () => {
+    const inbox = new RunStore(repo.localDir).inboxDir;
+    await fs.mkdir(inbox, { recursive: true });
+    const write = (name: string, input: unknown) =>
+      fs.writeFile(path.join(inbox, `${name}.json`), JSON.stringify({ tool: 'claude', receivedAt: new Date().toISOString(), input }));
+    await write('000000000000001-a', { hook_event_name: 'SessionStart', session_id: 'NEW', cwd: '/elsewhere' });
+    await write('000000000000002-b', { hook_event_name: 'UserPromptSubmit', session_id: 'NEW', cwd: '/elsewhere', prompt: '로그인 오류 고쳐줘\n자세히' });
+    await write('000000000000003-c', { hook_event_name: 'SessionStart', session_id: 'NOISE', cwd: '/elsewhere' });
+    await service.processInbox();
+    expect(service.unlinkedSessions().find((u) => u.sessionId === 'NEW')?.prompt).toBe('로그인 오류 고쳐줘\n자세히');
+
+    await service.handle({ type: 'unlinkedSession', action: 'dismiss', tool: 'claude', sessionId: 'NOISE' });
+    await write('000000000000004-d', { hook_event_name: 'Stop', session_id: 'NOISE', cwd: '/elsewhere' });
+    await service.processInbox();
+    expect(service.unlinkedSessions().map((u) => u.sessionId)).toEqual(['NEW']);
+
+    stub.answers = ['로그인 오류'];
+    await service.handle({ type: 'unlinkedSession', action: 'newCard', tool: 'claude', sessionId: 'NEW' });
+    const card = board.allCards().find((c) => c.title === '로그인 오류')!;
+    expect((await runsOf(card.id))[0]).toMatchObject({ external: true, toolSessionId: 'NEW' });
+    expect(service.unlinkedSessions()).toEqual([]);
+  });
   it('sends later events of a session picked for another card to that card (pickSession)', async () => {
     const first = await newCard({ implementer: 'claude' });
     const second = await newCard({ implementer: 'claude' });

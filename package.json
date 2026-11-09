@@ -26,6 +26,11 @@
         "category": "Agent Board"
       },
       {
+        "command": "agentBoard.openInBrowser",
+        "title": "%command.openInBrowser%",
+        "category": "Agent Board"
+      },
+      {
         "command": "agentBoard.createCard",
         "title": "%command.createCard%",
         "category": "Agent Board"

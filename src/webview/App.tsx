@@ -4,6 +4,7 @@ import { Board } from './Board';
 import type { BoardFilter } from './cards';
 import { CardPage } from './Detail';
 import { Filters } from './Filters';
+import { RulesPage } from './RulesPage';
 import { GearIcon } from './icons';
 import { Settings } from './Settings';
 import { SharedDocPage } from './SharedDocPage';
@@ -14,7 +15,7 @@ import { LocaleContext, loadViewState, onMessage, saveViewState, send, useT } fr
 
 /** 보는 사람의 화면 상태. 공유 파일에 쓰지 않는다 (TASK-2 DS-5). */
 interface ViewState {
-  view: 'board' | 'settings' | 'card' | 'shared';
+  view: 'board' | 'settings' | 'card' | 'shared' | 'rules';
   /** view가 card일 때 연 카드 (TASK-3 CP-1) */
   card?: string;
   /** view가 shared일 때 연 공용 문서 ID */
@@ -51,11 +52,18 @@ export function App() {
       ) : cardView ? (
         <CardPage key={cardView.dir} view={cardView} state={state} onBack={() => showView('board')} />
       ) : viewState.view === 'shared' && viewState.doc && state.board?.sharedDocs.some((d) => d.id === viewState.doc) ? (
-        <SharedDocPage key={viewState.doc} docId={viewState.doc} state={state} onBack={() => showView('board')} />
+        <SharedDocPage
+          key={viewState.doc}
+          docId={viewState.doc}
+          state={state}
+          onBack={() => showView(state.board?.sharedDocs.find((d) => d.id === viewState.doc)?.rule ? 'rules' : 'board')}
+        />
+      ) : viewState.view === 'rules' ? (
+        <RulesPage state={state} onBack={() => showView('board')} onOpenDoc={(id) => showView('shared', undefined, id)} />
       ) : (
         <div className="layout">
           <main className="board-area">
-            <BoardHeader onSettings={() => showView('settings')} />
+            <BoardHeader onSettings={() => showView('settings')} onRules={() => showView('rules')} />
             <BoardWarnings state={state} />
             <HooksBanner state={state} />
             <UnlinkedSessions state={state} />
@@ -71,11 +79,16 @@ export function App() {
   );
 }
 
-function BoardHeader({ onSettings }: { onSettings: () => void }) {
+function BoardHeader({ onSettings, onRules }: { onSettings: () => void; onRules: () => void }) {
   const t = useT();
   return (
     <header className="board-header">
       <h1>Agent Board</h1>
+      <span className="spacer" />
+      <button onClick={onRules}>{t('rules.title')}</button>
+      {location.protocol.startsWith('vscode') && (
+        <button onClick={() => send({ type: 'openInBrowser' })}>{t('board.openInBrowser')}</button>
+      )}
       <button onClick={onSettings} aria-label={t('settings.open')}>
         <GearIcon />
         {t('settings.open')}

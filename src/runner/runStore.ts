@@ -39,6 +39,10 @@ export interface UnlinkedSession {
   tool: ToolId;
   sessionId: string;
   cwd: string;
+  /** 첫 요청 */
+  prompt?: string;
+  /** 숨긴 세션. 다시 목록에 넣지 않으려고 남긴다. */
+  dismissed?: boolean;
 }
 
 export interface InboxItem {

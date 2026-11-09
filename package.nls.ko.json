@@ -1,5 +1,6 @@
 {
   "command.open": "보드 열기",
+  "command.openInBrowser": "브라우저에서 보드 열기",
   "command.createCard": "카드 만들기",
   "command.renumberCard": "카드 ID 변경",
   "command.installHooks": "에이전트 세션 Hook 설치",

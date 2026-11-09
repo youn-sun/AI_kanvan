@@ -41,5 +41,8 @@ export function assertShareableCard(card: Card): void {
 
 export function assertShareableBoard(board: BoardConfig): void {
   assertNoForbiddenKeys(board, '$');
-  board.sharedDocs.forEach((d, i) => assertNoAbsolutePaths(d.path, `$.sharedDocs[${i}].path`));
+  board.sharedDocs.forEach((d, i) => {
+    assertNoAbsolutePaths(d.path, `$.sharedDocs[${i}].path`);
+    if (d.rule) assertNoAbsolutePaths(d.rule.scope, `$.sharedDocs[${i}].rule.scope`);
+  });
 }

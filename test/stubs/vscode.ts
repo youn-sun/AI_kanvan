@@ -23,7 +23,7 @@ export const window = {
   showErrorMessage: answer('error'),
   showInformationMessage: answer('info'),
   showQuickPick: async (items: unknown[]) => (stub.answers.length ? stub.answers.shift() : items[0]),
-  showInputBox: async () => stub.answers.shift() as string | undefined,
+  showInputBox: async (opts?: { value?: string }) => (stub.answers.length ? stub.answers.shift() : opts?.value),
   showTextDocument: async () => undefined,
   createTerminal: (opts: { name: string; cwd: string }) => {
     const terminal = { ...opts, text: [] as string[] };

@@ -10,6 +10,7 @@ export function Filters({ state, filter, onChange }: { state: BoardState; filter
   const t = useT();
   const categories = state.board?.categories ?? [];
   const attention = placedCards(state).filter(needsAttention).length;
+  const starred = placedCards(state).filter((v) => v.card.starred).length;
   return (
     <div className="filters">
       {(attention > 0 || filter.attention) && (
@@ -20,6 +21,15 @@ export function Filters({ state, filter, onChange }: { state: BoardState; filter
         >
           <BellIcon />
           {t('filter.attention', { n: attention })}
+        </button>
+      )}
+      {(starred > 0 || filter.starred) && (
+        <button
+          className={`chip starred${filter.starred ? ' active' : ''}`}
+          aria-pressed={!!filter.starred}
+          onClick={() => onChange({ ...filter, starred: !filter.starred || undefined })}
+        >
+          ★ {t('filter.starred', { n: starred })}
         </button>
       )}
       <div className="chips" role="radiogroup" aria-label={t('filter.categories')}>
