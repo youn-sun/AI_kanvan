@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { TOOL_IDS, type SharedDoc, type ToolId } from '../core/types';
 import { ruleSections, sectionTools, type RuleSection } from '../core/agentRules';
 import type { BoardState, CanvasActionMessage, RuleFileView } from '../shared/protocol';
@@ -303,7 +303,7 @@ function RuleSideBySide({ rule, source }: { rule: RuleDoc; source: string }) {
   const tools = rule.rule.tools;
   if (tools.length === 0) return <p className="muted">{t('rules.noFiles')}</p>;
   const sections = ruleSections(source);
-  const cells: JSX.Element[] = [];
+  const cells: ReactElement[] = [];
   sections.forEach((s, row) => {
     const gridRow = row + 2;
     const key = `${s.line}:${s.title}`;
