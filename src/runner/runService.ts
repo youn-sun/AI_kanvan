@@ -41,6 +41,7 @@ import {
   fillNewCardDocs,
   parseClassifierOutput,
   sessionNotice,
+  titleFromPrompt,
   type CardSummary,
   type MatchDecision,
 } from './cardMatcher';
@@ -184,7 +185,7 @@ export class RunService implements RunsBridge, vscode.Disposable {
   }
 
   unlinkedSessions(): BoardState['unlinkedSessions'] {
-    return this.unlinked;
+    return this.unlinked.filter((u) => !u.dismissed).map(({ tool, sessionId, cwd, prompt }) => ({ tool, sessionId, cwd, prompt }));
   }
 
   async runs(cardId: string): Promise<{ runs: RunView[]; sessions: Partial<Record<Role, string>> }> {
@@ -251,6 +252,9 @@ export class RunService implements RunsBridge, vscode.Disposable {
         return true;
       case 'linkSession':
         await this.linkSession(msg.tool, msg.sessionId);
+        return true;
+      case 'unlinkedSession':
+        await this.unlinkedAction(msg.action, msg.tool, msg.sessionId);
         return true;
       case 'openSession':
         await this.openSession(msg.dir, msg.tool, msg.sessionId);
@@ -854,9 +858,17 @@ export class RunService implements RunsBridge, vscode.Disposable {
   }
 
   private async addUnlinked(event: AgentEvent): Promise<void> {
-    if (!event.toolSessionId || this.unlinked.some((u) => u.tool === event.tool && u.sessionId === event.toolSessionId)) return;
-    this.unlinked = [...this.unlinked, { tool: event.tool, sessionId: event.toolSessionId, cwd: event.payload?.cwd ?? '' }];
+    if (!event.toolSessionId) return;
+    const prompt = event.type === 'turn.started' ? event.payload?.prompt?.trim() || undefined : undefined;
+    const existing = this.unlinked.find((u) => u.tool === event.tool && u.sessionId === event.toolSessionId);
+    if (existing) {
+      if (existing.prompt || !prompt) return;
+      this.unlinked = this.unlinked.map((u) => (u === existing ? { ...u, prompt } : u));
+    } else {
+      this.unlinked = [...this.unlinked, { tool: event.tool, sessionId: event.toolSessionId, cwd: event.payload?.cwd ?? '', prompt }];
+    }
     await this.store.saveUnlinked(this.unlinked);
+    if (prompt) this.board.refresh();
   }
 
   private cardOfWorktree(cwd: string | undefined): Card | undefined {
@@ -1041,6 +1053,10 @@ export class RunService implements RunsBridge, vscode.Disposable {
     if (!rolePick) return;
     if (!(await this.bind(cardPick.label, rolePick.role, tool, sessionId))) return;
     await this.attachExternal(cardPick.label, rolePick.role, tool, sessionId, new Date().toISOString());
+    await this.dropUnlinked(tool, sessionId);
+  }
+
+  private async dropUnlinked(tool: ToolId, sessionId: string): Promise<void> {
     this.unlinked = this.unlinked.filter((u) => !(u.tool === tool && u.sessionId === sessionId));
     await this.store.saveUnlinked(this.unlinked);
     this.board.refresh();
@@ -1089,6 +1105,36 @@ export class RunService implements RunsBridge, vscode.Disposable {
       this.board.t('msg.sessionLinked', { tool: this.board.t(`tool.${t}`), id: cardId, role: this.board.t(`role.${r}`) }),
     );
     return true;
+  }
+
+  private async unlinkedAction(action: 'open' | 'newCard' | 'dismiss', tool: ToolId, sessionId: string): Promise<void> {
+    const entry = this.unlinked.find((u) => u.tool === tool && u.sessionId === sessionId);
+    if (!entry) return;
+    if (action === 'open') {
+      if (await openInToolUi(tool, sessionId)) return;
+      const binary = this.binaries[tool];
+      if (!binary) {
+        void vscode.window.showWarningMessage(this.board.t('runs.notInstalled', { tool: this.board.t(`tool.${tool}`) }));
+        return;
+      }
+      resumeInTerminal(tool, binary, sessionId, entry.cwd && (await pathExists(entry.cwd)) ? entry.cwd : this.board.root);
+      return;
+    }
+    if (action === 'dismiss') {
+      this.unlinked = this.unlinked.map((u) => (u === entry ? { ...u, dismissed: true } : u));
+      await this.store.saveUnlinked(this.unlinked);
+      this.board.refresh();
+      return;
+    }
+    const prompt = entry.prompt ?? '';
+    const title = await vscode.window.showInputBox({
+      prompt: this.board.t('msg.newCardTitle'),
+      value: prompt ? titleFromPrompt(prompt) : '',
+      validateInput: (v) => (v.trim() ? undefined : this.board.t('msg.newCardTitle')),
+    });
+    if (!title?.trim()) return;
+    const result = await this.applyDecision({ title: title.trim(), intent: prompt, spec: [], plan: [], via: 'keyword' }, prompt, tool, sessionId);
+    if (result.linked) await this.dropUnlinked(tool, sessionId);
   }
 
   // ---- Hook ----

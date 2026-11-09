@@ -100,7 +100,7 @@ export interface BoardState {
   hookTools: ToolId[];
   machine: MachineSettings;
   /** 카드를 판별하지 못한 세션 (E-8) */
-  unlinkedSessions: { tool: ToolId; sessionId: string; cwd: string }[];
+  unlinkedSessions: { tool: ToolId; sessionId: string; cwd: string; prompt?: string }[];
   rules: RulesState;
 }
 
@@ -187,6 +187,7 @@ export type ToExtension =
   | { type: 'pickSession'; dir: string; role: Role }
   | { type: 'newSession'; dir: string; role: Role }
   | { type: 'linkSession'; tool: ToolId; sessionId: string }
+  | { type: 'unlinkedSession'; action: 'open' | 'newCard' | 'dismiss'; tool: ToolId; sessionId: string }
   | { type: 'requestReview'; dir: string }
   | { type: 'createWorktree'; dir: string }
   | { type: 'installHooks' }

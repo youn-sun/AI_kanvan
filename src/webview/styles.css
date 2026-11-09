@@ -122,6 +122,7 @@ code { font-family: var(--vscode-editor-font-family); font-size: 0.95em; }
   gap: 4px;
 }
 .warning-row { display: flex; gap: var(--gap); align-items: center; flex-wrap: wrap; }
+.unlinked-title { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .board { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap: var(--gap); align-items: start; }
 
